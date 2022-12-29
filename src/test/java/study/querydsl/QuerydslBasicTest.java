@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -27,9 +28,11 @@ public class QuerydslBasicTest {
     @Autowired
     private EntityManager em;
 
-    //메서드 안이 아닌 field 에 선언하면 multi thread 가 동시적으로 접근할 경우 문제가 되지 않을까?
-    //EntityManager 가 Transaction 단위로 동작하기 때문에,
-    //EntityManager 가 자신이 속한 Transaction 이외에서 동작하지 않게 설계되어 있어, 동시성 문제가 없다.
+    /**
+     * 메서드 안이 아닌 field 에 선언하면 multi thread 가 동시적으로 접근할 경우 문제가 되지 않을까?
+     * EntityManager 가 Transaction 단위로 동작하기 때문에,
+     * EntityManager 가 자신이 속한 Transaction 이외에서 동작하지 않게 설계되어 있어, 동시성 문제가 없다.
+     */
     private JPAQueryFactory queryFactory;
 
     private Team teamA;
@@ -220,9 +223,7 @@ public class QuerydslBasicTest {
      */
     @Test
     void sortTest() {
-        /* select member1
-        from Member member1
-        where member1.age = ?1
+        /* select member1 from Member member1 where member1.age = ?1
         order by member1.age desc, member1.username asc nulls last */
         //given
         Member nullMember = Member.builder().username(null).age(100).build();
@@ -338,6 +339,7 @@ public class QuerydslBasicTest {
         assertThat(actualTeamB.get(team.name)).isEqualTo("teamB");
         assertThat(actualTeamB.get(member.age.avg())).isEqualTo(35);
     }
+
     @Test
     void groupByHavingTest() {
         //given
@@ -363,4 +365,51 @@ public class QuerydslBasicTest {
         assertThat(actualTeamB.get(member.age.max())).isEqualTo(40);
     }
 
+    /**
+     * 팀 A에 소속된 모든 회원
+     */
+    @Test
+    void joinTest() {
+        //given
+
+        //when
+        List<Member> actual = queryFactory.select(member)
+                .from(member)
+                .join(member.team, team)//.leftJoin(member.team, team)
+                .where(team.name.eq("teamA"))
+                .fetch();
+        //then
+        assertThat(actual)
+                .containsExactlyInAnyOrder(member1, member2);
+        assertThat(actual)
+                .extracting("username")
+                .containsExactly("member1", "member2");
+    }
+
+    /**
+     * 세타 조인
+     * 회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    void thetaJoinTest() {
+        //given
+        Member memberTeamA = Member.builder().username("teamA").build();
+        Member memberTeamB = Member.builder().username("teamB").build();
+        Member memberTeamC = Member.builder().username("teamC").build();
+        em.persist(memberTeamA);
+        em.persist(memberTeamB);
+        em.persist(memberTeamC);
+
+        //when
+        List<Member> actual = queryFactory
+                .select(member)
+                .from(member, team)//cartesian join(cross join)
+                .where(member.username.eq(team.name))
+                .fetch();
+
+        //then
+        assertThat(actual)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
+    }
 }
