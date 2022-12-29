@@ -13,6 +13,7 @@ import study.querydsl.entity.Team;
 import javax.persistence.EntityManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static study.querydsl.entity.QMember.*;
 
 @SpringBootTest
 @Transactional
@@ -72,12 +73,23 @@ public class QuerydslBasicTest {
     @Test
     void startQuerydslTest() {
         //given
-        QMember m = new QMember("m");//constructor variable(별칭)
+        QMember m = new QMember("m1");//constructor variable(별칭): jpql alias(사용시기 ex. 같은테이블 조인 조회시 alias 가 필요할 경우)
         //when
         Member findMember = queryFactory
                 .select(m)
                 .from(m)
                 .where(m.username.eq("member1"))//parameter binding //.where(m.username.eq("' or 1=1--")) ==> where m.username=' or 1=1--'; : sql injection 방지
+                .fetchOne();
+        //then
+        assertThat(findMember.getUsername()).isEqualTo("member1");
+    }
+    @Test
+    void startQuerydslRefactorStaticImportTest() {
+        //when
+        Member findMember = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.username.eq("member1"))
                 .fetchOne();
         //then
         assertThat(findMember.getUsername()).isEqualTo("member1");

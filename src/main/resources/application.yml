@@ -13,6 +13,8 @@ spring:
       hibernate:
 #        show_sql: true #sysout hibernate execute query
         format_sql: true #query formatting
+        use_sql_comments: true #when queryDsl, print comments original jpql
+
 
 logging.level:
   org.hibernate.SQL: debug #logger hibernate execute query
