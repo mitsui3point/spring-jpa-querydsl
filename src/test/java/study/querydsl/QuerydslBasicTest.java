@@ -2,6 +2,7 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -239,5 +240,50 @@ public class QuerydslBasicTest {
 
         //then
         assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    void pagingTest() {
+        /* select from order by member0_.username desc limit 2 offset 1
+         */
+        //given
+        List<Member> expected = Arrays.asList(member3, member2);
+
+        //when
+        List<Member> actual = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetch();
+
+        //then
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    void pagingQueryResultsTest() {
+        /* select from order by member0_.username desc limit 2 offset 1
+         */
+        //given
+        List<Member> expectedResults = Arrays.asList(member3, member2);
+
+        //when
+        QueryResults<Member> actual = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetchResults();
+        List<Member> actualResults = actual.getResults();
+        long actualTotal = actual.getTotal();
+        long actualOffset = actual.getOffset();
+        long actualLimit = actual.getLimit();
+
+        //then
+        assertThat(actualResults).isEqualTo(expectedResults);
+        assertThat(actualTotal).isEqualTo(4);
+        assertThat(actualOffset).isEqualTo(1);
+        assertThat(actualLimit).isEqualTo(2);
     }
 }
