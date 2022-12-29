@@ -412,4 +412,135 @@ public class QuerydslBasicTest {
                 .extracting("username")
                 .containsExactly("teamA", "teamB");
     }
+
+    /**
+     * 조인 대상 필터링
+     * 예) 회원과 팀을 조인하면서,
+     * 팀 이름이 teamA 인 팀만 조인, 회원은 모두 조회
+     * JPQL: select m from Member m left join m.team t on t.name = "teamA"
+     */
+    @Test
+    void leftJoinOnFilteringTest() {
+        //given
+        Member member5 = Member.builder().username("member5").age(50).build();
+        em.persist(member5);
+
+        //when
+        List<Tuple> actual = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .on(team.name.eq("teamA"))//.where(team.name.eq("teamA")) ;left join on 은 record 개수에 영향을 주지 않으므로 record 개수가 틀어짐
+                .fetch();
+
+        //then
+        actual.forEach(System.out::println);
+
+        assertThat(actual.size()).isEqualTo(5);
+        //member 기준 left join 이므로 member record 는 모두 조회
+        assertThat(actual.get(0).get(member)).isEqualTo(member1);
+        assertThat(actual.get(1).get(member)).isEqualTo(member2);
+        assertThat(actual.get(2).get(member)).isEqualTo(member3);
+        assertThat(actual.get(3).get(member)).isEqualTo(member4);
+        assertThat(actual.get(4).get(member)).isEqualTo(member5);
+        //team name "teamA" 인 team data 값만 채움(나머지 teamB, null .. 등은 null)
+        assertThat(actual.get(0).get(team)).isEqualTo(teamA);
+        assertThat(actual.get(1).get(team)).isEqualTo(teamA);
+        assertThat(actual.get(2).get(team)).isNull();
+        assertThat(actual.get(3).get(team)).isNull();
+        assertThat(actual.get(4).get(team)).isNull();
+    }
+    @Test
+    void joinOnFilteringTest() {
+        //given
+        Member member5 = Member.builder().username("member5").age(50).build();
+        em.persist(member5);
+
+        //when
+        List<Tuple> actual = queryFactory
+                .select(member, team)
+                .from(member)
+                .join(member.team, team)
+                .where(team.name.eq("teamA"))//.on(team.name.eq("teamA")) ;record 추출이므로 결과 같음.
+                .fetch();
+
+        //then
+        actual.forEach(System.out::println);
+
+        assertThat(actual.size()).isEqualTo(2);
+        //member 기준 inner join 이므로 team.name = "teamA" 인 record 만 조회
+        assertThat(actual.get(0).get(member)).isEqualTo(member1);
+        assertThat(actual.get(1).get(member)).isEqualTo(member2);
+        //team name "teamA" 인 team data 만 조회해 옴(나머지 teamB, null 등은 inner join 이므로 조회하지 않음)
+        assertThat(actual.get(0).get(team)).isEqualTo(teamA);
+        assertThat(actual.get(1).get(team)).isEqualTo(teamA);
+    }
+
+    /**
+     * 연관관계가 없는 엔티티 외부 조인
+     * 회원의 이름이 팀 이름과 같은 대상 외부 조인
+     */
+    @Test
+    void leftJoinOnNoRelationTest() {
+        //given
+        Member memberTeamA = Member.builder().username("teamA").build();
+        Member memberTeamB = Member.builder().username("teamB").build();
+        Member memberTeamC = Member.builder().username("teamC").build();
+        em.persist(memberTeamA);
+        em.persist(memberTeamB);
+        em.persist(memberTeamC);
+
+        //when
+        List<Tuple> actual = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team)
+                .on(member.username.eq(team.name))
+                .fetch();
+        //then
+        actual.forEach(System.out::println);
+
+        assertThat(actual.size()).isEqualTo(7);
+
+        assertThat(actual.get(0).get(member)).isEqualTo(member1);
+        assertThat(actual.get(1).get(member)).isEqualTo(member2);
+        assertThat(actual.get(2).get(member)).isEqualTo(member3);
+        assertThat(actual.get(3).get(member)).isEqualTo(member4);
+        assertThat(actual.get(4).get(member)).isEqualTo(memberTeamA);
+        assertThat(actual.get(5).get(member)).isEqualTo(memberTeamB);
+        assertThat(actual.get(6).get(member)).isEqualTo(memberTeamC);
+
+        assertThat(actual.get(0).get(team)).isNull();
+        assertThat(actual.get(1).get(team)).isNull();
+        assertThat(actual.get(2).get(team)).isNull();
+        assertThat(actual.get(3).get(team)).isNull();
+        assertThat(actual.get(4).get(team)).isEqualTo(teamA);
+        assertThat(actual.get(5).get(team)).isEqualTo(teamB);
+        assertThat(actual.get(6).get(team)).isNull();
+    }
+    @Test
+    void joinOnNoRelationTest() {
+        //given
+        Member memberTeamA = Member.builder().username("teamA").build();
+        Member memberTeamB = Member.builder().username("teamB").build();
+        Member memberTeamC = Member.builder().username("teamC").build();
+        em.persist(memberTeamA);
+        em.persist(memberTeamB);
+        em.persist(memberTeamC);
+
+        //when
+        List<Tuple> actual = queryFactory
+                .select(member, team)
+                .from(member)
+                .join(team)
+                .on(member.username.eq(team.name))
+                .fetch();
+        //then
+        actual.forEach(System.out::println);
+
+        assertThat(actual.size()).isEqualTo(2);
+
+        assertThat(actual.get(0).get(member)).isEqualTo(memberTeamA);
+        assertThat(actual.get(1).get(member)).isEqualTo(memberTeamB);
+    }
 }
