@@ -1,5 +1,6 @@
 package study.querydsl;
 
+import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,7 +12,10 @@ import study.querydsl.entity.QMember;
 import study.querydsl.entity.Team;
 
 import javax.persistence.EntityManager;
+import java.util.Arrays;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
 import static study.querydsl.entity.QMember.member;
 
@@ -132,5 +136,78 @@ public class QuerydslBasicTest {
                 .fetchOne();
         //then
         assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    void resultFetchTest() {
+        //given
+        List<Member> expected = Arrays.asList(member2, member3, member4);
+        //when
+        List<Member> actual = queryFactory
+                .selectFrom(member)
+                .offset(1)
+                .limit(3)
+                .orderBy(member.id.asc())
+                .fetch();
+        //then
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    void resultFetchOneTest() {
+        //given
+        Member expected = member1;
+        //when
+        /* select member1 from Member member1 where member1.username = ?1 */
+        Member actual = queryFactory
+                .selectFrom(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+        //then
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    void resultFetchFirstTest() {
+        //given
+        Member expected = member1;
+        //when
+        /* select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_ limit 1; */
+        Member actual = queryFactory
+                .selectFrom(member)
+                .fetchFirst();
+
+        //then
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    /**
+     * deprecated
+     */
+    @Test
+    void resultFetchResultAndCountTest() {
+        //given
+        List<Member> expectedResults = Arrays.asList(member1, member2, member3, member4);
+        int expectedTotal = expectedResults.size();
+        int expectedCount = expectedTotal;
+
+        //when
+        QueryResults<Member> fetchResults = queryFactory
+                .selectFrom(member)
+                .fetchResults();
+        List<Member> actualResults = fetchResults.getResults();/* select member1 from Member member1 */
+        long actualTotal = fetchResults.getTotal();/* select count(member1) from Member member1 */
+
+        //then
+        assertThat(actualResults).isEqualTo(expectedResults);
+        assertThat(actualTotal).isEqualTo(expectedTotal);
+
+        //when
+        long actualCount = queryFactory
+                .selectFrom(member)
+                .fetchCount();/* select count(member1) from Member member1 */
+
+        //then
+        assertThat(actualCount).isEqualTo(expectedCount);
     }
 }
