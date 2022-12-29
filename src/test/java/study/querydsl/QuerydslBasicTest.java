@@ -15,7 +15,6 @@ import javax.persistence.EntityManager;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
 import static study.querydsl.entity.QMember.member;
 
@@ -209,5 +208,36 @@ public class QuerydslBasicTest {
 
         //then
         assertThat(actualCount).isEqualTo(expectedCount);
+    }
+
+    /**
+     * 회원 정렬 순서
+     * 1. 회원 나이 내림차순(desc)
+     * 2. 회원 이름 오름차순(asc)
+     * 단 2에서 회원이름이 없을 경우 마지막 출력(nulls test)
+     */
+    @Test
+    void sortTest() {
+        /* select member1
+        from Member member1
+        where member1.age = ?1
+        order by member1.age desc, member1.username asc nulls last */
+        //given
+        Member nullMember = Member.builder().username(null).age(100).build();
+        Member member5 = Member.builder().username("member5").age(100).build();
+        Member member6 = Member.builder().username("member6").age(100).build();
+        em.persist(nullMember);
+        em.persist(member5);
+        em.persist(member6);
+        List<Member> expected = Arrays.asList(member5, member6, nullMember);
+
+        //when
+        List<Member> actual = queryFactory.selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.desc(), member.username.asc().nullsLast())
+                .fetch();
+
+        //then
+        assertThat(actual).isEqualTo(expected);
     }
 }
