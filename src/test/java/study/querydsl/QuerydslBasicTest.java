@@ -14,6 +14,9 @@ import study.querydsl.entity.QMember;
 import study.querydsl.entity.Team;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceUnit;
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,8 +28,10 @@ import static study.querydsl.entity.QTeam.team;
 @Transactional
 public class QuerydslBasicTest {
 
-    @Autowired
+    @PersistenceContext
     private EntityManager em;
+    @PersistenceUnit
+    private EntityManagerFactory emf;
 
     /**
      * 메서드 안이 아닌 field 에 선언하면 multi thread 가 동시적으로 접근할 경우 문제가 되지 않을까?
@@ -542,5 +547,77 @@ public class QuerydslBasicTest {
 
         assertThat(actual.get(0).get(member)).isEqualTo(memberTeamA);
         assertThat(actual.get(1).get(member)).isEqualTo(memberTeamB);
+    }
+
+    /**
+        select member1
+        from Member member1
+        inner join member1.team as team
+        where member1.username = 'member1'1
+        ====================JPQL/QUERY====================
+        select
+            member0_.member_id as member_i1_1_,
+            member0_.age as age2_1_,
+            member0_.team_id as team_id4_1_,
+            member0_.username as username3_1_
+        from member member0_
+        inner join team team1_ on member0_.team_id = team1_.id
+        where member0_.username = 'member1';
+     */
+    @Test
+    void fetchJoinNoTest() {
+        //given
+        em.flush();
+        em.clear();
+        //when
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        boolean isTeamLoaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());//초기화가 진행된 Entity 인지 확인
+
+        //then
+        assertThat(isTeamLoaded).as("fetch join 미적용").isFalse();
+    }
+
+    /**
+        select member1
+        from Member member1
+        inner join fetch member1.team as team
+        where member1.username = 'member1'1
+        ====================JPQL/QUERY====================
+        select
+            member0_.member_id as member_i1_1_0_,
+            team1_.id as id1_2_1_,
+            member0_.age as age2_1_0_,
+            member0_.team_id as team_id4_1_0_,
+            member0_.username as username3_1_0_,
+            team1_.name as name2_2_1_
+        from member member0_
+        inner join team team1_
+            on member0_.team_id = team1_.id
+        where member0_.username = 'member1';
+     */
+    @Test
+    void fetchJoinTest() {
+        //given
+        em.flush();
+        em.clear();
+        //when
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)
+                .fetchJoin()
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        findMember.getTeam().getName();
+
+        boolean isTeamLoaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());//초기화가 진행된 Entity 인지 확인
+
+        //then
+        assertThat(isTeamLoaded).as("fetch join 적용").isTrue();
     }
 }
