@@ -3,6 +3,7 @@ package study.querydsl;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -553,16 +554,8 @@ public class QuerydslBasicTest {
     }
 
     /**
-     * select member1
-     * from Member member1
-     * inner join member1.team as team
-     * where member1.username = 'member1'1
-     * ====================JPQL/QUERY====================
      * select
-     * member0_.member_id as member_i1_1_,
-     * member0_.age as age2_1_,
-     * member0_.team_id as team_id4_1_,
-     * member0_.username as username3_1_
+     * member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_
      * from member member0_
      * inner join team team1_ on member0_.team_id = team1_.id
      * where member0_.username = 'member1';
@@ -586,21 +579,11 @@ public class QuerydslBasicTest {
     }
 
     /**
-     * select member1
-     * from Member member1
-     * inner join fetch member1.team as team
-     * where member1.username = 'member1'1
-     * ====================JPQL/QUERY====================
      * select
-     * member0_.member_id as member_i1_1_0_,
-     * team1_.id as id1_2_1_,
-     * member0_.age as age2_1_0_,
-     * member0_.team_id as team_id4_1_0_,
-     * member0_.username as username3_1_0_,
-     * team1_.name as name2_2_1_
+     * member0_.member_id as member_i1_1_0_, team1_.id as id1_2_1_,
+     * member0_.age as age2_1_0_, member0_.team_id as team_id4_1_0_, member0_.username as username3_1_0_, team1_.name as name2_2_1_
      * from member member0_
-     * inner join team team1_
-     * on member0_.team_id = team1_.id
+     * inner join team team1_ on member0_.team_id = team1_.id
      * where member0_.username = 'member1';
      */
     @Test
@@ -742,22 +725,9 @@ public class QuerydslBasicTest {
      */
     /**
      * select
-     * case
-     * when member1.age = ?1 then ?2
-     * when member1.age = ?3 then ?4
-     * else '기타'
-     * end
-     * from
-     * Member member1
-     * ====================JPQL/QUERY====================
-     * select
-     * case
-     * when member0_.age=? then ?
-     * when member0_.age=? then ?
-     * else '기타'
+     * case when member0_.age=? then ? when member0_.age=? then ? else '기타'
      * end as col_0_0_
-     * from
-     * member member0_
+     * from member member0_
      */
     @Test
     void basicCaseTest() {
@@ -777,22 +747,9 @@ public class QuerydslBasicTest {
 
     /**
      * select
-     * case
-     * when (member1.age between ?1 and ?2) then ?3
-     * when (member1.age between ?4 and ?5) then ?6
-     * else '기타'
-     * end
-     * from
-     * Member member1
-     * ====================JPQL/QUERY====================
-     * select
-     * case
-     * when member0_.age between ? and ? then ?
-     * when member0_.age between ? and ? then ?
-     * else '기타'
+     * case when member0_.age between ? and ? then ? when member0_.age between ? and ? then ? else '기타'
      * end as col_0_0_
-     * from
-     * member member0_
+     * from member member0_
      */
     @Test
     void complexCaseTest() {
@@ -810,38 +767,12 @@ public class QuerydslBasicTest {
     }
 
     /**
-     * select
-     * member1.username,
-     * member1.age,
-     * case
-     * when (member1.age between ?1 and ?2) then ?3
-     * when (member1.age between ?4 and ?5) then ?6
-     * else 3
-     * end
-     * from
-     * Member member1
-     * order by
-     * case
-     * when (member1.age between ?7 and ?8) then ?9
-     * when (member1.age between ?10 and ?11) then ?12
-     * else 3
-     * end desc
-     * ====================JPQL/QUERY====================
-     * select
-     * member0_.username as col_0_0_,
-     * member0_.age as col_1_0_,
-     * case
-     * when member0_.age between ? and ? then ?
-     * when member0_.age between ? and ? then ?
-     * else 3
+     * select member0_.username as col_0_0_, member0_.age as col_1_0_,
+     * case when member0_.age between ? and ? then ? when member0_.age between ? and ? then ? else 3
      * end as col_2_0_
-     * from
-     * member member0_
+     * from member member0_
      * order by
-     * case
-     * when member0_.age between ? and ? then ?
-     * when member0_.age between ? and ? then ?
-     * else 3
+     * case when member0_.age between ? and ? then ? when member0_.age between ? and ? then ? else 3
      * end desc
      */
     @Test
@@ -866,4 +797,40 @@ public class QuerydslBasicTest {
                     + rank);
         }
     }
+
+    /**
+     * select member0_.username as col_0_0_ from member member0_ where member0_.username='member1';
+     */
+    @Test
+    void constantsTest() {
+        //given
+
+        //when
+        Tuple actual = queryFactory
+                .select(member.username, Expressions.constant("A"))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+        //then
+        assertThat(actual.get(0, String.class)).isEqualTo("member1");
+        assertThat(actual.get(1, String.class)).isEqualTo("A");
+    }
+
+    /**
+     * select ((member0_.username||'_')||cast(member0_.age as character varying)) as col_0_0_ from member member0_ where member0_.username='member1';
+     */
+    @Test
+    void constantsConcatTest() {
+        //given
+
+        //when
+        String actual = queryFactory
+                .select(member.username.concat("_").concat(member.age.stringValue()))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+        //then
+        assertThat(actual).isEqualTo("member1_10");
+    }
+
 }
