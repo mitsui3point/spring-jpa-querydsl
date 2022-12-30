@@ -2,6 +2,8 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -667,6 +669,29 @@ public class QuerydslBasicTest {
     }
 
     /**
+     * DB에서 inline view(from subquery) 구현에 관해..
+     *  : 최대한 사용하지 않는 방향으로 고민해 볼 필요가 있음; 보통 안좋은 이유가 많다.
+     *  : DBMS SQL 에서 기능들을 너무 많이 제공하다 보니,
+     *      application layer 관련 로직도 SQL 에 넣고,
+     *      presentation layer formatting 로직도 SQL 에 넣고.. 불필요한 SQL 로직이 적재된다.
+     *  : SQL 이 아닌 분리된 다른 각각의 계층에서 처리해야 한다.
+     *  : SQL 은 최소한의 grouping, filter 으로 줄여진 rawdata 만 가져오는데에만 집중하고,
+     *      필요하면 application layer 에서 로직을 처리하고,
+     *      presentation layer formatting 이 필요하더라도 presentation layer 에서 처리하는 것이 올바른 책임분리.
+     *  : 각각 layer 의 책임분리가 불명확하게 되면,
+     *      다른 layer 에 종속적인 SQL 들을 작성하게 되어,
+     *      SQL 재사용성이 떨어지게 된다.
+     * 한방 쿼리
+     *  : 복잡할 경우에 보통 한방 쿼리를 사용하게 되는데,
+     *      application layer 에서 SQL 을 나누어 호출하는 방향으로 풀어가는 것이 유리하다.
+     *  : SQL AntiPatterns(빌 카윈 저 / 윤성준 역)
+     *
+     * 불가피하게 사용해야 할 경우
+     * 1. 서브쿼리를 join으로 변경한다. (가능한 상황도 있고, 불가능한 상황도 있다.)
+     * 2. 애플리케이션에서 쿼리를 2번 분리해서 실행한다.
+     * 3. nativeSQL을 사용한다.
+     */
+    /**
      * 나이가 평균 이상인 회원을 조회
      */
     @Test
@@ -707,4 +732,138 @@ public class QuerydslBasicTest {
         assertThat(actual.size()).isEqualTo(4);
     }
 
+    /**
+     * DB에서 case when 문을 사용하면서 rawdata 를 converting 해야 할까..?
+     *  : 지양할 필요가 있음. DB 조회는 최소한의 grouping, filter 으로 줄여진 rawdata 만 조회한 뒤,
+     *  : 조건에 따라 가공해야 할 data(ex. 전환, 가공, 화면노출..)들은
+     *      DB가 아닌
+     *      application layer 혹은
+     *      presentation layer 에서 처리하는 것이 낫다.
+     */
+    /**
+     * select
+     * case
+     * when member1.age = ?1 then ?2
+     * when member1.age = ?3 then ?4
+     * else '기타'
+     * end
+     * from
+     * Member member1
+     * ====================JPQL/QUERY====================
+     * select
+     * case
+     * when member0_.age=? then ?
+     * when member0_.age=? then ?
+     * else '기타'
+     * end as col_0_0_
+     * from
+     * member member0_
+     */
+    @Test
+    void basicCaseTest() {
+        //given
+
+        //when
+        List<String> actual = queryFactory
+                .select(member.age
+                        .when(10).then("열살")
+                        .when(20).then("스무살")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+        //then
+        assertThat(actual).containsExactly("열살", "스무살", "기타", "기타");
+    }
+
+    /**
+     * select
+     * case
+     * when (member1.age between ?1 and ?2) then ?3
+     * when (member1.age between ?4 and ?5) then ?6
+     * else '기타'
+     * end
+     * from
+     * Member member1
+     * ====================JPQL/QUERY====================
+     * select
+     * case
+     * when member0_.age between ? and ? then ?
+     * when member0_.age between ? and ? then ?
+     * else '기타'
+     * end as col_0_0_
+     * from
+     * member member0_
+     */
+    @Test
+    void complexCaseTest() {
+        //given
+
+        //when
+        List<String> actual = queryFactory
+                .select(new CaseBuilder()
+                        .when(member.age.between(0, 20)).then("0 ~ 20")
+                        .when(member.age.between(21, 30)).then("21 ~ 30")
+                        .otherwise("기타"))
+                .from(member).fetch();
+        //then
+        assertThat(actual).containsExactly("0 ~ 20", "0 ~ 20", "21 ~ 30", "기타");
+    }
+
+    /**
+     * select
+     * member1.username,
+     * member1.age,
+     * case
+     * when (member1.age between ?1 and ?2) then ?3
+     * when (member1.age between ?4 and ?5) then ?6
+     * else 3
+     * end
+     * from
+     * Member member1
+     * order by
+     * case
+     * when (member1.age between ?7 and ?8) then ?9
+     * when (member1.age between ?10 and ?11) then ?12
+     * else 3
+     * end desc
+     * ====================JPQL/QUERY====================
+     * select
+     * member0_.username as col_0_0_,
+     * member0_.age as col_1_0_,
+     * case
+     * when member0_.age between ? and ? then ?
+     * when member0_.age between ? and ? then ?
+     * else 3
+     * end as col_2_0_
+     * from
+     * member member0_
+     * order by
+     * case
+     * when member0_.age between ? and ? then ?
+     * when member0_.age between ? and ? then ?
+     * else 3
+     * end desc
+     */
+    @Test
+    void rankCaseTest() {
+        //given
+        //when
+        NumberExpression<Integer> rankPath = new CaseBuilder()
+                .when(member.age.between(0, 20)).then(2)
+                .when(member.age.between(21, 30)).then(1)
+                .otherwise(3);
+        List<Tuple> result = queryFactory
+                .select(member.username, member.age, rankPath)
+                .from(member)
+                .orderBy(rankPath.desc())
+                .fetch();
+        //then
+        for (Tuple tuple : result) {
+            String username = tuple.get(member.username);
+            Integer age = tuple.get(member.age);
+            Integer rank = tuple.get(rankPath);
+            System.out.println("username = " + username + " age = " + age + " rank = "
+                    + rank);
+        }
+    }
 }
