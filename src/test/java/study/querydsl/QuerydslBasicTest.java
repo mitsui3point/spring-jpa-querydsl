@@ -5,9 +5,7 @@ import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -20,6 +18,7 @@ import javax.persistence.PersistenceUnit;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.querydsl.jpa.JPAExpressions.select;
 import static org.assertj.core.api.Assertions.assertThat;
 import static study.querydsl.entity.QMember.member;
 import static study.querydsl.entity.QTeam.team;
@@ -455,6 +454,7 @@ public class QuerydslBasicTest {
         assertThat(actual.get(3).get(team)).isNull();
         assertThat(actual.get(4).get(team)).isNull();
     }
+
     @Test
     void joinOnFilteringTest() {
         //given
@@ -523,6 +523,7 @@ public class QuerydslBasicTest {
         assertThat(actual.get(5).get(team)).isEqualTo(teamB);
         assertThat(actual.get(6).get(team)).isNull();
     }
+
     @Test
     void joinOnNoRelationTest() {
         //given
@@ -550,19 +551,19 @@ public class QuerydslBasicTest {
     }
 
     /**
-        select member1
-        from Member member1
-        inner join member1.team as team
-        where member1.username = 'member1'1
-        ====================JPQL/QUERY====================
-        select
-            member0_.member_id as member_i1_1_,
-            member0_.age as age2_1_,
-            member0_.team_id as team_id4_1_,
-            member0_.username as username3_1_
-        from member member0_
-        inner join team team1_ on member0_.team_id = team1_.id
-        where member0_.username = 'member1';
+     * select member1
+     * from Member member1
+     * inner join member1.team as team
+     * where member1.username = 'member1'1
+     * ====================JPQL/QUERY====================
+     * select
+     * member0_.member_id as member_i1_1_,
+     * member0_.age as age2_1_,
+     * member0_.team_id as team_id4_1_,
+     * member0_.username as username3_1_
+     * from member member0_
+     * inner join team team1_ on member0_.team_id = team1_.id
+     * where member0_.username = 'member1';
      */
     @Test
     void fetchJoinNoTest() {
@@ -583,22 +584,22 @@ public class QuerydslBasicTest {
     }
 
     /**
-        select member1
-        from Member member1
-        inner join fetch member1.team as team
-        where member1.username = 'member1'1
-        ====================JPQL/QUERY====================
-        select
-            member0_.member_id as member_i1_1_0_,
-            team1_.id as id1_2_1_,
-            member0_.age as age2_1_0_,
-            member0_.team_id as team_id4_1_0_,
-            member0_.username as username3_1_0_,
-            team1_.name as name2_2_1_
-        from member member0_
-        inner join team team1_
-            on member0_.team_id = team1_.id
-        where member0_.username = 'member1';
+     * select member1
+     * from Member member1
+     * inner join fetch member1.team as team
+     * where member1.username = 'member1'1
+     * ====================JPQL/QUERY====================
+     * select
+     * member0_.member_id as member_i1_1_0_,
+     * team1_.id as id1_2_1_,
+     * member0_.age as age2_1_0_,
+     * member0_.team_id as team_id4_1_0_,
+     * member0_.username as username3_1_0_,
+     * team1_.name as name2_2_1_
+     * from member member0_
+     * inner join team team1_
+     * on member0_.team_id = team1_.id
+     * where member0_.username = 'member1';
      */
     @Test
     void fetchJoinTest() {
@@ -620,4 +621,90 @@ public class QuerydslBasicTest {
         //then
         assertThat(isTeamLoaded).as("fetch join 적용").isTrue();
     }
+
+    /**
+     * 나이가 가장 많은 회원을 조회
+     */
+    @Test
+    void subQueryTest() {
+        //given
+        QMember memberSub = new QMember("memberSub");
+
+        //when
+        Member actual = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(
+                        select(memberSub.age.max())
+                                .from(memberSub))
+                )
+                .fetchOne();
+        //then
+        assertThat(actual).extracting("age").isEqualTo(40);
+        assertThat(actual).extracting("username").isEqualTo("member4");
+    }
+
+    /**
+     * 나이가 10살 초과인 회원을 조회
+     */
+    @Test
+    void subQueryGoeTest() {
+        //given
+        QMember memberSub = new QMember("memberSub");
+
+        //when
+        List<Member> actual = queryFactory
+                .selectFrom(member)
+                .where(member.age.in(
+                                select(memberSub.age)
+                                        .from(memberSub)
+                                        .where(member.age.gt(10))
+                        )
+                )
+                .fetch();
+        //then
+        assertThat(actual).extracting("age").containsExactly(20, 30, 40);
+        assertThat(actual).extracting("username").containsExactly("member2", "member3", "member4");
+    }
+
+    /**
+     * 나이가 평균 이상인 회원을 조회
+     */
+    @Test
+    void subQueryInTest() {
+        //given
+        QMember memberSub = new QMember("memberSub");
+
+        //when
+        List<Member> actual = queryFactory
+                .selectFrom(member)
+                .where(member.age.goe(
+                        select(memberSub.age.avg())
+                                .from(memberSub))
+                )
+                .fetch();
+        //then
+        assertThat(actual).extracting("age").containsExactly(30, 40);
+        assertThat(actual).extracting("username").containsExactly("member3", "member4");
+    }
+
+    @Test
+    void selectSubQueryTest() {
+        //given
+        QMember memberSub = new QMember("memberSub");
+
+        //when
+        List<Tuple> actual = queryFactory
+                .select(member.username,
+                        select(memberSub.age.avg().subtract(member.age))
+                                .from(memberSub)
+                )
+                .from(member)
+                .fetch();
+
+        //then
+        System.out.println("actual = " + actual);
+        actual.forEach(System.out::println);
+        assertThat(actual.size()).isEqualTo(4);
+    }
+
 }
