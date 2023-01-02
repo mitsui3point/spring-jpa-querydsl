@@ -1,16 +1,12 @@
 package study.querydsl.dto;
 
-import com.querydsl.core.types.ExpressionUtils;
 import com.querydsl.core.types.Projections;
-import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.entity.Member;
-import study.querydsl.entity.QMember;
 import study.querydsl.entity.Team;
 
 import javax.persistence.EntityManager;
@@ -141,6 +137,38 @@ public class MemberDtoTest {
                 .select(Projections.constructor(MemberDto.class,
                         member.username,
                         member.age))
+                .from(member)
+                .fetch();
+
+        //then
+        actual.forEach(System.out::println);
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    /**
+     * select member0_.username as col_0_0_, member0_.age as col_1_0_ from member member0_;
+     * <p>
+     * {@link com.querydsl.core.annotations.QueryProjection}
+     * <p>
+     * 1. 장점<br/>
+     *  : 컴파일 타임 오류 확인 ex) 생성자 파라미터 잘못 입력한 경우<br/>
+     *  ->  {@link Projections}(런타임 오류 확인)<br/>
+     *  ->  {@link com.querydsl.core.annotations.QueryProjection}(컴파일타임 오류 확인)<br/>
+     * <p>
+     * 2. 단점<br/>
+     *  : QMemberDto 생성<br/>
+     *  : QueryDsl library(@QueryProjection) 의존성이 생겨버림.<br/>
+     *      => ex. QueryDsl 교체 등.. 문제가 생길 수 있음<br/>
+     *      => DTO 여러 layer(repository, service, controller.. )에서 사용하는데,<br/>
+     *      {@link com.querydsl.core.annotations.QueryProjection} 이 들어가게 되면 앞에 언급한 layer 들에 MemberDto 의 의존성이 같이 흘러들어감.<br/>
+     */
+    @Test
+    void findDtoByQueryProjectionTest() {
+        //given
+        List<MemberDto> expected = getMemberDtos();
+        //when
+        List<MemberDto> actual = queryFactory
+                .select(new QMemberDto(member.username, member.age))
                 .from(member)
                 .fetch();
 
