@@ -3,6 +3,7 @@ package study.querydsl;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -10,8 +11,9 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.lang.NonNull;
 import org.springframework.transaction.annotation.Transactional;
+import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
 import study.querydsl.entity.Team;
@@ -858,12 +860,12 @@ public class QuerydslBasicTest {
     /**
      * {@link Tuple}: com.querydsl.core
      * Tuple 이 Repository 계층에서 사용하는것은 괜찮으나,
-     *      Service, Controller 계층에서 사용하는 것은 좋은 설계가 아니다
-     *  : 하부 구현기술(Jpa, QueryDsl ...) 사용을 다른 계층(ex. Service, Controller 같은 핵심 비즈니스 로직 계층)에 노출하는 것은 좋지 않다.
-     *      다른 계층이 하부 구현기술에 의존하게 되는 구조가 되므로 좋지 않은 설계.
-     *  : 하부 구현기술을 다른것으로 바꿀 때,
-     *      다른 계층이 의존하고 있게 되면 하부 구현기술을 유연하게 바꿀 수 없다.
-     *  ==> parameter return 을 DTO 로 변환하여 다른계층과 데이터를 주고 받을 것.
+     * Service, Controller 계층에서 사용하는 것은 좋은 설계가 아니다
+     * : 하부 구현기술(Jpa, QueryDsl ...) 사용을 다른 계층(ex. Service, Controller 같은 핵심 비즈니스 로직 계층)에 노출하는 것은 좋지 않다.
+     * 다른 계층이 하부 구현기술에 의존하게 되는 구조가 되므로 좋지 않은 설계.
+     * : 하부 구현기술을 다른것으로 바꿀 때,
+     * 다른 계층이 의존하고 있게 되면 하부 구현기술을 유연하게 바꿀 수 없다.
+     * ==> parameter return 을 DTO 로 변환하여 다른계층과 데이터를 주고 받을 것.
      */
     @Test
     void tupleProjectionTest() {
@@ -890,7 +892,7 @@ public class QuerydslBasicTest {
     /**
      * 동적 쿼리 - BooleanBuilder 사용
      * select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_
-     * where member0_.username='member1' and member0_.age=10;
+     * where member0_.age=10;
      */
     @Test
     void dynamicQueryBooleanBuilderTest() {
@@ -899,13 +901,13 @@ public class QuerydslBasicTest {
         Integer ageParam = 10;
 
         //when
-        List<Member> actual = searchMemberByBooleanBuilder(usernameParam, ageParam);
+        List<Member> actual = searchMemberBooleanBuilder(usernameParam, ageParam);
 
         //then
         assertThat(actual).containsExactly(member1);
     }
 
-    private List<Member> searchMemberByBooleanBuilder(String usernameCond, Integer ageCond) {
+    private List<Member> searchMemberBooleanBuilder(String usernameCond, Integer ageCond) {
 
         BooleanBuilder builder = new BooleanBuilder(/*member.username.eq(usernameCond)*/);
         if (usernameCond != null) {
@@ -921,4 +923,100 @@ public class QuerydslBasicTest {
                 .fetch();
     }
 
+    /**
+     * 동적 쿼리 - Where 다중 파라미터 사용
+     * : where 조건에 null 값은 무시된다.
+     * : 메서드를 다른 쿼리에서도 재활용 할 수 있다.
+     * : 쿼리 자체의 가독성이 높아진다.
+     * <p>
+     * select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_
+     * where member0_.username='member1';
+     */
+    @Test
+    void dynamicQueryWhereParamTest() {
+        //given
+        String usernameParam = "member1";
+        Integer ageParam = null;
+
+        //when
+        List<Member> actual = searchMemberWhereParam(usernameParam, ageParam);
+
+        //then
+        assertThat(actual).containsExactly(member1);
+    }
+    @Test
+    void dynamicQueryWhereParamAllTest() {
+        //given
+        String usernameParam = "member1";
+        Integer ageParam = null;
+
+        //when
+        List<Member> actualAll = searchMemberWhereParamAll(usernameParam, ageParam);
+
+        //then
+        assertThat(actualAll).containsExactly(member1);
+    }
+    @Test
+    void dynamicQueryWhereParamReusableTest() {
+        //given
+        String usernameParam = "member1";
+        Integer ageParam = null;
+
+        //when
+        List<MemberDto> actualReusable = searchMemberWhereParamReusable(usernameParam, ageParam);
+
+        //then
+        assertThat(actualReusable).containsExactly(
+                MemberDto
+                        .builder()
+                        .username(member1.getUsername())
+                        .age(member1.getAge())
+                        .build()
+        );
+    }
+
+    private List<Member> searchMemberWhereParam(String usernameCond, Integer ageCond) {
+        return queryFactory
+                .selectFrom(member)
+                .where(usernameEq(usernameCond), ageEq(ageCond))//파라미터 null 일 경우 무시; ex) .where(null, ageEq(ageCond))
+                .fetch();
+    }
+
+    private List<Member> searchMemberWhereParamAll(String usernameCond, Integer ageCond) {
+        return queryFactory
+                .selectFrom(member)
+                .where(allEq(usernameCond, ageCond))
+                .fetch();
+    }
+
+    private List<MemberDto> searchMemberWhereParamReusable(String usernameCond, Integer ageCond) {
+        return queryFactory
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .where(allEq(usernameCond, ageCond))
+                .fetch();
+    }
+
+    /**
+     * 메소드 추출로 재사용이 용이,
+     * searchMemberWhereParam 외에 다른 where() 절에 사용 가능
+     */
+    private BooleanExpression usernameEq(String usernameCond) {
+        if (usernameCond != null) {
+            return member.username.eq(usernameCond);
+        }
+        return null;
+    }
+
+    private BooleanExpression ageEq(Integer ageCond) {
+        if (ageCond != null) {
+            return member.age.eq(ageCond);
+        }
+        return null;
+    }
+
+    private BooleanExpression allEq(String usernameCond, Integer ageCond) {
+        return usernameEq(usernameCond)
+                .and(ageEq(ageCond));
+    }
 }
