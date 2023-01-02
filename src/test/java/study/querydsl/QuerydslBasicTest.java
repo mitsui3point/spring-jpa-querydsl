@@ -1,5 +1,6 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -9,6 +10,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.lang.NonNull;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -20,7 +22,6 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.PersistenceUnit;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.querydsl.jpa.JPAExpressions.select;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -886,5 +887,38 @@ public class QuerydslBasicTest {
         });
     }
 
+    /**
+     * 동적 쿼리 - BooleanBuilder 사용
+     * select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_
+     * where member0_.username='member1' and member0_.age=10;
+     */
+    @Test
+    void dynamicQueryBooleanBuilderTest() {
+        //given
+        String usernameParam = null;
+        Integer ageParam = 10;
+
+        //when
+        List<Member> actual = searchMemberByBooleanBuilder(usernameParam, ageParam);
+
+        //then
+        assertThat(actual).containsExactly(member1);
+    }
+
+    private List<Member> searchMemberByBooleanBuilder(String usernameCond, Integer ageCond) {
+
+        BooleanBuilder builder = new BooleanBuilder(/*member.username.eq(usernameCond)*/);
+        if (usernameCond != null) {
+            builder.and(member.username.eq(usernameCond));
+        }
+        if (ageCond != null) {
+            builder.and(member.age.eq(ageCond));
+        }
+
+        return queryFactory
+                .selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
 
 }
