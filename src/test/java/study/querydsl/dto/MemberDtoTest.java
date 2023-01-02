@@ -149,33 +149,6 @@ public class MemberDtoTest {
         assertThat(actual).isEqualTo(expected);
     }
 
-    /**
-     * member0_.username as col_0_0_, member0_.age as col_1_0_ from member member0_;
-     */
-    @Test
-    void findUserDtoTest() {
-        //given
-        List<UserDto> expected = getUserDtos();
-
-        //when
-        QMember memberSub = new QMember("memberSub");
-        List<UserDto> actual = queryFactory
-                .select(Projections.fields(UserDto.class,
-                        member.username.as("name"),//Entity Dto 간 field 이름이 다른 경우 매핑방법
-                        ExpressionUtils.as(
-                                JPAExpressions
-                                        .select(memberSub.age.max())
-                                        .from(memberSub),
-                                "age")//age 별칭에 다른 value 매핑
-                        ))
-                .from(member)
-                .fetch();
-
-        //then
-        actual.forEach(System.out::println);
-        assertThat(actual).isEqualTo(expected);
-    }
-
     private List<MemberDto> getMemberDtos() {
         return Arrays.asList(member1, member2, member3, member4)
                 .stream()
@@ -183,18 +156,6 @@ public class MemberDtoTest {
                     return MemberDto.builder()
                             .username(member.getUsername())
                             .age(member.getAge())
-                            .build();
-                })
-                .collect(Collectors.toList());
-    }
-
-    private List<UserDto> getUserDtos() {
-        return Arrays.asList(member1, member2, member3, member4)
-                .stream()
-                .map(member -> {
-                    return UserDto.builder()
-                            .name(member.getUsername())
-                            .age(member4.getAge())
                             .build();
                 })
                 .collect(Collectors.toList());
