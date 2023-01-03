@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: local # 임의로 지은 프로파일명 @Profile("local") 붙은 @Component 가 Bean 등록됨
+    active: test # 임의로 지은 프로파일명
   datasource:
     url: jdbc:h2:tcp://localhost/~/querydsl
 #    url: jdbc:h2:mem:querydsl
