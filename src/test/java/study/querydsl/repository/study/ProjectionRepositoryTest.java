@@ -1,4 +1,4 @@
-package study.querydsl.repository;
+package study.querydsl.repository.study;
 
 import com.querydsl.core.Tuple;
 import org.assertj.core.api.Assertions;

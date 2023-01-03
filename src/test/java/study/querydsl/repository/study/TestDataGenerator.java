@@ -1,4 +1,4 @@
-package study.querydsl.repository;
+package study.querydsl.repository.study;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
