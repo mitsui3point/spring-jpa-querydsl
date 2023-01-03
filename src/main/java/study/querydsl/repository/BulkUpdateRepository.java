@@ -1,24 +1,23 @@
 package study.querydsl.repository;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 
 import static study.querydsl.entity.QMember.member;
 
 @Repository
-@RequiredArgsConstructor
-@Transactional
 public class BulkUpdateRepository {
     private final EntityManager em;
-    private JPAQueryFactory queryFactory;
+    private final JPAQueryFactory queryFactory;
+
+    public BulkUpdateRepository(EntityManager em) {
+        this.em = em;
+        this.queryFactory = new JPAQueryFactory(em);
+    }
 
     public long memberBulkUpdate(String changeName, int ageCond) {
-        queryFactory = new JPAQueryFactory(em);
-
         long updateCount = queryFactory.update(member)
                 .set(member.username, changeName)
                 .where(member.age.lt(ageCond))
@@ -33,8 +32,6 @@ public class BulkUpdateRepository {
     }
 
     public long bulkAddAge(int addAge) {
-        queryFactory = new JPAQueryFactory(em);
-
         long updateCount = queryFactory.update(member)
                 .set(member.age, member.age.add(addAge))
                 .execute();
@@ -48,8 +45,6 @@ public class BulkUpdateRepository {
     }
 
     public long bulkDelete(int deleteAgeCond) {
-        queryFactory = new JPAQueryFactory(em);
-
         long updateCount = queryFactory.delete(member)
                 .where(member.age.lt(deleteAgeCond))
                 .execute();

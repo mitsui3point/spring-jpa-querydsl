@@ -3,8 +3,6 @@ package study.querydsl.repository;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import study.querydsl.dto.MemberDto;
 import study.querydsl.dto.QMemberDto;
@@ -12,21 +10,19 @@ import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
 
 import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceUnit;
 import java.util.List;
 
 @Repository
-@RequiredArgsConstructor
 public class DynamicQueryRepository {
     private final EntityManager em;
+    private final JPAQueryFactory queryFactory;
 
-    private JPAQueryFactory queryFactory;
+    public DynamicQueryRepository(EntityManager em) {
+        this.em = em;
+        this.queryFactory = new JPAQueryFactory(em);
+    }
 
     public List<Member> searchMemberBooleanBuilder(String usernameCond, Integer ageCond) {
-        queryFactory = new JPAQueryFactory(em);
-
         BooleanBuilder builder = new BooleanBuilder(/*member.username.eq(usernameCond)*/);
         if (usernameCond != null) {
             builder.and(QMember.member.username.eq(usernameCond));
@@ -42,7 +38,6 @@ public class DynamicQueryRepository {
     }
 
     public List<Member> searchMemberWhereParam(String usernameCond, Integer ageCond) {
-        queryFactory = new JPAQueryFactory(em);
         return queryFactory
                 .selectFrom(QMember.member)
                 .where(usernameEq(usernameCond), ageEq(ageCond))//파라미터 null 일 경우 무시; ex) .where(null, ageEq(ageCond))
@@ -50,7 +45,6 @@ public class DynamicQueryRepository {
     }
 
     public List<Member> searchMemberWhereParamAll(String usernameCond, Integer ageCond) {
-        queryFactory = new JPAQueryFactory(em);
         return queryFactory
                 .selectFrom(QMember.member)
                 .where(allEq(usernameCond, ageCond))
@@ -58,7 +52,6 @@ public class DynamicQueryRepository {
     }
 
     public List<MemberDto> searchMemberWhereParamReusable(String usernameCond, Integer ageCond) {
-        queryFactory = new JPAQueryFactory(em);
         return queryFactory
                 .select(new QMemberDto(QMember.member.username, QMember.member.age))
                 .from(QMember.member)
