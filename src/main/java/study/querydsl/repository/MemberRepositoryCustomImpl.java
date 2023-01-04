@@ -2,11 +2,12 @@ package study.querydsl.repository;
 
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Repository;
 import study.querydsl.dto.MemberSearchCondition;
 import study.querydsl.dto.MemberTeamDto;
@@ -62,11 +63,21 @@ public class MemberRepositoryCustomImpl implements MemberRepositoryCustom {
 
     @Override
     public Page<MemberTeamDto> searchPage(MemberSearchCondition condition, Pageable pageable) {
-        /** {@link PageImpl} implements {@link Page} */
-        return new PageImpl<>(
+//        /** {@link PageImpl} implements {@link Page} */
+//        return new PageImpl<>(
+//                searchPageContent(condition, pageable),
+//                pageable,
+//
+        /**
+         * 스프링 데이터 라이브러리가 제공<br/>
+         * count 쿼리가 생략 가능한 경우 생략해서 처리<br/>
+         * : 페이지 시작이면서 컨텐츠 사이즈가 페이지 사이즈보다 작을 때<br/>
+         * : 마지막 페이지 일 때 (offset + 컨텐츠 사이즈를 더해서 전체 사이즈 구함)<br/>
+         */
+        return PageableExecutionUtils.getPage(
                 searchPageContent(condition, pageable),
                 pageable,
-                searchPageTotal(condition));
+                searchPageTotal(condition)::fetchOne);
     }
 
     private List<MemberTeamDto> searchPageContent(MemberSearchCondition condition, Pageable pageable) {
@@ -91,7 +102,8 @@ public class MemberRepositoryCustomImpl implements MemberRepositoryCustom {
                 .fetch();
     }
 
-    private Long searchPageTotal(MemberSearchCondition condition) {
+//    private Long searchPageTotal(MemberSearchCondition condition) {
+    private JPAQuery<Long> searchPageTotal(MemberSearchCondition condition) {
         return queryFactory
                 .select(member.id.count())
                 .from(member)
@@ -100,8 +112,7 @@ public class MemberRepositoryCustomImpl implements MemberRepositoryCustom {
                         usernameEq(condition.getUsername()),
                         teamNameEq(condition.getTeamName()),
                         ageGoe(condition.getAgeGoe()),
-                        ageLoe(condition.getAgeLoe()))
-                .fetchOne();
+                        ageLoe(condition.getAgeLoe()));
     }
 
     /**
