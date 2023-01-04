@@ -15,6 +15,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Jpa -> SpringDataJpa
+ */
 @SpringBootTest
 @Transactional
 public class MemberRepositoryTest {
@@ -25,9 +28,6 @@ public class MemberRepositoryTest {
     @PersistenceContext
     private EntityManager em;
 
-    /**
-     * Jpa -> SpringDataJpa
-     */
     @Test
     void basicTest() {
         //given
@@ -35,8 +35,8 @@ public class MemberRepositoryTest {
         Member member2 = Member.builder().username("member2").age(20).build();
 
         //when
-        memberRepository.save(member1);//insert into member (age, team_id, username, member_id) values (10, NULL, 'member1', 1);
-        memberRepository.save(member2);//insert into member (age, team_id, username, member_id) values (20, NULL, 'member2', 2);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
         Member findMember = memberRepository
                 .findById(member1.getId())
                 .orElseGet(() -> {
@@ -51,12 +51,46 @@ public class MemberRepositoryTest {
         List<Member> findMembersByUsername = memberRepository
                 .findByUsername(member1.getUsername());
         //then
-        assertThat(findMembersByUsername).containsExactly(member1);//select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_ where member0_.username=?
+        assertThat(findMembersByUsername).containsExactly(member1);
 
         //when
         List<Member> findAllMembers = memberRepository
                 .findAll();
         //then
-        assertThat(findAllMembers).containsExactly(member1, member2);//select member0_.member_id as member_i1_1_, member0_.age as age2_1_, member0_.team_id as team_id4_1_, member0_.username as username3_1_ from member member0_;
+        assertThat(findAllMembers).containsExactly(member1, member2);
+    }
+
+    @Test
+    void searchWhereParamTest() {
+        //given
+        searchTestData();
+
+        MemberSearchCondition condition = MemberSearchCondition.builder().ageGoe(35).ageLoe(40).teamName("teamB").build();
+
+        //when
+        List<MemberTeamDto> actual = memberRepository.search(condition);
+        actual.forEach(System.out::println);
+
+        //then
+        assertThat(actual).extracting("username").containsExactly("member4");
+    }
+
+    private void searchTestData() {
+        Team teamA = Team.builder().name("teamA").build();
+        Team teamB = Team.builder().name("teamB").build();
+        em.persist(teamA);
+        em.persist(teamB);
+
+        Member member1 = Member.builder().username("member1").age(10).team(teamA).build();
+        Member member2 = Member.builder().username("member2").age(20).team(teamA).build();
+        Member member3 = Member.builder().username("member3").age(30).team(teamB).build();
+        Member member4 = Member.builder().username("member4").age(40).team(teamB).build();
+        em.persist(member1);
+        em.persist(member2);
+        em.persist(member3);
+        em.persist(member4);
+
+        em.flush();
+        em.clear();
     }
 }
