@@ -28,22 +28,43 @@ public class MemberControllerTest {
     private MockMvc mvc;
 
     @Autowired
-    private MemberController memberController;
+    private WebApplicationContext context;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(memberController).build();
+        mvc = MockMvcBuilders.webAppContextSetup(context).build();
     }
 
     @Test
     @Transactional
-    void initTest() throws Exception {
+    void initV1Test() throws Exception {
         //given
         LinkedMultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("username", "member1");
 
         //when
         ResultActions perform = mvc.perform(get("/v1/members").params(params));
+
+        //then
+        perform.andDo(print())
+                .andExpect(status().isOk());
+
+    }
+
+    @Test
+    @Transactional
+    void initV2Test() throws Exception {
+        //given
+        LinkedMultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("username", "member11");
+        params.add("teamName", "teamB");
+        params.add("ageGoe", "10");
+        params.add("ageLoe", "30");
+        params.add("size", "5");
+        params.add("page", "2");
+
+        //when
+        ResultActions perform = mvc.perform(get("/v2/members"));//.params(params));
 
         //then
         perform.andDo(print())
