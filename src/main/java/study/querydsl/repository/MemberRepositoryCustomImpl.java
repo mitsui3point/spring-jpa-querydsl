@@ -4,6 +4,9 @@ import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import study.querydsl.dto.MemberSearchCondition;
 import study.querydsl.dto.MemberTeamDto;
@@ -53,9 +56,52 @@ public class MemberRepositoryCustomImpl implements MemberRepositoryCustom {
                         teamNameEq(condition.getTeamName()),
                         ageGoe(condition.getAgeGoe()),
                         ageLoe(condition.getAgeLoe())
-                        //betweenAge(condition.getAgeGoe(), condition.getAgeLoe())
                 )
                 .fetch();
+    }
+
+    @Override
+    public Page<MemberTeamDto> searchPage(MemberSearchCondition condition, Pageable pageable) {
+        /** {@link PageImpl} implements {@link Page} */
+        return new PageImpl<>(
+                searchPageContent(condition, pageable),
+                pageable,
+                searchPageTotal(condition));
+    }
+
+    private List<MemberTeamDto> searchPageContent(MemberSearchCondition condition, Pageable pageable) {
+        return queryFactory
+                .select(new QMemberTeamDto(
+                        member.id,
+                        member.username,
+                        member.age,
+                        team.id,
+                        team.name))
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamName()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())
+                )
+                .orderBy(member.id.asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+    }
+
+    private Long searchPageTotal(MemberSearchCondition condition) {
+        return queryFactory
+                .select(member.id.count())
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(
+                        usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamName()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe()))
+                .fetchOne();
     }
 
     /**
@@ -89,9 +135,5 @@ public class MemberRepositoryCustomImpl implements MemberRepositoryCustom {
             return member.age.loe(ageLoe);
         }
         return null;
-    }
-
-    private BooleanExpression betweenAge(Integer ageGoe, Integer ageLoe) {
-        return ageGoe(ageGoe).and(ageLoe(ageLoe));
     }
 }

@@ -3,6 +3,8 @@ package study.querydsl.repository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberSearchCondition;
 import study.querydsl.dto.MemberTeamDto;
@@ -75,6 +77,25 @@ public class MemberRepositoryTest {
         assertThat(actual).extracting("username").containsExactly("member4");
     }
 
+    @Test
+    void searchPagingTest() {
+        //given
+        searchPageTestData();
+
+        //when
+        MemberSearchCondition condition = MemberSearchCondition.builder().ageGoe(20).ageLoe(30).teamName("teamB").build();
+        PageRequest pageRequest = PageRequest.of(0, 5);
+        Page<MemberTeamDto> actual = memberRepository.searchPage(condition, pageRequest);
+
+        //then
+        assertThat(actual.getNumber()).isEqualTo(0);
+        assertThat(actual.getContent().size()).isEqualTo(5);
+        assertThat(actual.getContent()).extracting("username").containsExactly("member20", "member22", "member24", "member26", "member28");
+        assertThat(actual.getContent()).extracting("age").containsExactly(20, 22, 24, 26, 28);
+        assertThat(actual.getContent()).extracting("teamName").containsExactly("teamB", "teamB", "teamB", "teamB", "teamB");
+        assertThat(actual.getTotalPages()).isEqualTo(2);
+    }
+
     private void searchTestData() {
         Team teamA = Team.builder().name("teamA").build();
         Team teamB = Team.builder().name("teamB").build();
@@ -89,6 +110,24 @@ public class MemberRepositoryTest {
         em.persist(member2);
         em.persist(member3);
         em.persist(member4);
+
+        em.flush();
+        em.clear();
+    }
+
+    private void searchPageTestData() {
+        Team teamA = Team.builder().name("teamA").build();
+        Team teamB = Team.builder().name("teamB").build();
+        em.persist(teamA);
+        em.persist(teamB);
+
+        for (int i = 0; i < 30; i++) {
+            Member member = Member.builder()
+                    .username("member" + (i + 1))
+                    .age(i + 1)
+                    .team(i % 2 == 0 ? teamA : teamB).build();
+            em.persist(member);
+        }
 
         em.flush();
         em.clear();
