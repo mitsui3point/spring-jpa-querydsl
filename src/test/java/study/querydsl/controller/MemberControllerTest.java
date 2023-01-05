@@ -40,7 +40,6 @@ import static study.querydsl.entity.QTeam.team;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Profile("local")
 public class MemberControllerTest {
     private MockMvc mvc;
 
