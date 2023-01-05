@@ -95,7 +95,7 @@ public class MemberControllerTest {
         params.add("ageLoe", "30");
         params.add("size", "5");
         params.add("page", "0");
-        
+
         List<MemberTeamDto> results = queryFactory
                 .select(new QMemberTeamDto(member.id, member.username, member.age, team.id, team.name))
                 .from(member)

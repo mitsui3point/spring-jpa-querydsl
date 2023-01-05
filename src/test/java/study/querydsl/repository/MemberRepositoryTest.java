@@ -16,6 +16,7 @@ import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static study.querydsl.entity.QMember.member;
 
 /**
  * Jpa -> SpringDataJpa
@@ -94,6 +95,29 @@ public class MemberRepositoryTest {
         assertThat(actual.getContent()).extracting("age").containsExactly(20, 22, 24, 26, 28);
         assertThat(actual.getContent()).extracting("teamName").containsExactly("teamB", "teamB", "teamB", "teamB", "teamB");
         assertThat(actual.getTotalPages()).isEqualTo(2);
+    }
+
+    /**
+     * 한계점
+     * 조인X (묵시적 조인은 가능하지만 left join이 불가능하다.)
+     * 클라이언트가 Querydsl에 의존해야 한다. 서비스 클래스가 Querydsl이라는 구현 기술에 의존해야 한다.
+     * 복잡한 실무환경에서 사용하기에는 한계가 명확하다.
+     * > 참고: QuerydslPredicateExecutor 는 Pagable, Sort를 모두 지원하고 정상 동작한다.
+     */
+    @Test
+    void querydslPredicateExecutorTest() {
+        //given
+        searchTestData();
+
+        //when
+        Iterable<Member> actual = memberRepository.findAll(
+                member.age.between(20, 40)
+                        .and(member.username.in("member3", "member4")));
+
+        //then
+        actual.forEach(System.out::println);
+        assertThat(actual).extracting("username").containsExactly("member3", "member4");
+        assertThat(actual).extracting("age").containsExactly(30, 40);
     }
 
     private void searchTestData() {
